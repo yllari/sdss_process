@@ -2,6 +2,8 @@ import numpy as np
 from astropy.io import fits
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+import requests
+import os
 
 class pipe_sdss():
     def __vacuum_to_air(self, wave):
@@ -51,6 +53,46 @@ class pipe_sdss():
         self.wdisp = data_fits[1].data['wdisp']
         self.eflux = 1./np.sqrt(self.ivar)
 
+    def _plot_debug(self):
+        fig, ax = plt.subplots(1, 5)
+        fig.set_size_inches(16,5)
+        ax[0].plot(self.wave_air, self.resolution_power() )
+        ax[0].set_xlabel(r'$\lambda$ air')
+        ax[0].set_ylabel(r'Resolution power')
+
+        ax[1].plot(self.wave_air, self.sigma_wave_air() )
+        ax[1].set_xlabel(r'$\lambda$ air')
+        ax[1].set_ylabel(r'$\sigma_\lambda$ air')
+
+        deg = self.degrade()
+        ax[2].plot(self.wave_air, self.flux - deg[1] )
+        ax[2].set_xlabel(r'$\lambda$ air')
+        ax[2].set_ylabel(r'flux - degraded flux')
+        ax[2].set_ylim([-10,10])
+
+        # Showing only the most affected range
+        filter_wave = (self.wave_air > 4000) & (self.wave_air < 4100)
+        ax[3].plot(self.wave_air[filter_wave], self.flux[filter_wave], label='original')
+        ax[3].plot(self.wave_air[filter_wave], deg[1][filter_wave], label='degraded')
+        ax[3].set_ylim()
+        ax[3].set_xlabel(r'$\lambda$ air')
+        ax[3].set_ylabel(r'flux')
+        ax[3].set_xlim([4000,4100])
+        ax[3].legend()
+
+        # Now the less affeted to compare
+        filter_wave = (self.wave_air > 6500) & (self.wave_air < 6600)
+        ax[4].plot(self.wave_air[filter_wave], self.flux[filter_wave], label='original')
+        ax[4].plot(self.wave_air[filter_wave], deg[1][filter_wave], label='degraded')
+        ax[4].set_ylim()
+        ax[4].set_xlabel(r'$\lambda$ air')
+        ax[4].set_ylabel(r'flux')
+        ax[4].set_xlim([6500,6600])
+        ax[4].legend()
+        print(np.sum(deg[1]), np.sum(self.flux))
+        fig.tight_layout()
+        fig.savefig('debug.png')
+
     def sigma_wave_air(self):
         ''' degrade all wavelength dispersion (i.e, gaussian) to its
         max value
@@ -76,11 +118,8 @@ class pipe_sdss():
         ''' Returns all necessary info from read fits'''
         return self.wave_air, self.flux, self.eflux
 
-    def correct_extinction(self):
-        ...
-
     def degrade(self, pad=10):
-        result_flux = 3
+        ''' Degrade the spectrum quality to achieve uniform resolution '''
 
         pad_wave = np.zeros( (int(len(self.wave_air) + 2*pad, ) ) )
         pad_sigma = np.zeros( (int(len(self.wave_air) + 2*pad, ) ) )
@@ -99,7 +138,7 @@ class pipe_sdss():
         max_sigma = np.nanmax(sigma_wave) # hotfix to avoid maxsigma zero
 
         conv_sigma = np.sqrt(max_sigma**2 - sigma_wave**2)
-        conv_sigma[conv_sigma < 0.0001] = 0.0001
+        conv_sigma[conv_sigma < 1e-9] = 1e-9 # dividing by zero fix
         pad_sigma[:pad] = conv_sigma[0]
         pad_sigma[-pad:] = conv_sigma[-1]
         pad_sigma[pad:-pad] = conv_sigma
@@ -109,48 +148,27 @@ class pipe_sdss():
         pad_flux[-pad:] = self.flux[-1]
         pad_flux[pad:-pad] = self.flux
 
-        dwave = np.zeros((len(pad_flux,)))
-        dwave[0:-1] = np.diff(pad_wave)
-        dwave[-1] = dwave[-2]
-        print(dwave)
-
         xy = np.meshgrid(pad_wave, pad_sigma)
 
-
-        #pad_mask = norm.pdf(xy[0].T,  loc=xy[0], scale=xy[1].T)
-
-
-
-        ''' WARNING, WIP DX-DEPENDENT NORMALIZATION'''
+        ''' WARNING, IN REALITY WE NEED  DX-DEPENDENT NORMALIZATION'''
+        ''' WARNING, CHECK THAT THE WAVELENGTH AND FLUX ARE CORRECTLY ALIGNED'''
+        pad_mask = norm.pdf(xy[0].T,  loc=xy[0], scale=xy[1].T)
         pad_mask_norm = np.sum(pad_mask, axis=1)
-        #print(pad_mask.shape)
-        #min_indx = np.where(pad_mask == np.max(pad_mask))
-        #min_indx = min_indx[1][0]
-        #plt.imshow(pad_mask > 0)
+        pad_mask = pad_mask/pad_mask_norm[None,:] # broadcasting
+        gauss_flux = pad_flux@pad_mask
 
+        #from astropy.convolution import Gaussian1DKernel, convolve
+        #gaus = Gaussian1DKernel(stddev=5)
+        #print(gaus[0])
+        #gauss_flux = convolve(self.flux,  Gaussian1DKernel(stddev=np.sqrt(max_sigma**2 - np.mean(sigma_wave)**2)),boundary='extend', nan_treatment='interpolate')
 
-        from astropy.convolution import Gaussian1DKernel, convolve
-        gaus = Gaussian1DKernel(stddev=5)
-        print(gaus[0])
-        gauss_flux = convolve(self.flux,  Gaussian1DKernel(stddev=np.sqrt(max_sigma**2 - np.mean(sigma_wave)**2)),boundary='extend', nan_treatment='interpolate')
-
-
-        return self.wave_air, gauss_flux
+        return pad_wave[pad:-pad], gauss_flux[pad:-pad]
 
 
 if __name__ == '__main__':
     filepath = 'data/voids/CAVITY137.fits'
     w_lims = [3800, 7100]
     sdss = pipe_sdss(filepath, w_lims)
-    data = sdss.give_data()
-    deg  = sdss.degrade()
-    plt.plot(*deg)
-    plt.plot(sdss.wave_air,sdss.flux)
-    #plt.plot(sdss.wave_air, sdss.flux)
-    plt.savefig('example.png')
-    def plot_resolution(class_data : pipe_sdss):
-        fig, ax = plt.subplots()
-        ax.set_xlim([3800,9000])
-        ax.set_ylim([1000,3000])
-        ax.plot(class_data.wave_air, class_data.resolution_power() )
-        fig.savefig('resolution.png')
+    #plt.hist(np.diff(sdss.logwave), bins=300)
+    #plt.savefig('example.png')
+    sdss._plot_debug()

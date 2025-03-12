@@ -1,0 +1,46 @@
+sqrt(1/ivar) = sigma_flux
+wdips, dispersion en long onda
+
+Comparar espetro con longitud Aire DR7, DR9. DR7 es la buena.
+
+Interpolar para obtener wdisp uniforme. Fluos, errores, saltos regulares.
+
+Correción extinción galáctica (MW) -> Posicion galáctica. Recipe SChlally (2011). API query. XML returned. Extinción media, no depende de longitud.
+
+Correción extinción paquete 'extinction' remove Cardelli (1989) RV=3.1
+
+3800, 7100 
+
+Some NaN values, mayor error por ejemplo
+
+galaxy - >CAVITY'galaxy'
+
+specobjid for SDSS
+
+
+Máscara longitudes de onda -> Líneas de cielo.
+
+
+Info enviada:
+
+Hola Yllari,
+
+Como hablamos esta mañana, te mando el código y enlaces adicionales sobre todos los pasos que vimos. Cualquier duda que tengas me preguntas, ¿vale? Incluso el mismo jueves en la reunión podemos hablarlo. Luego me he dado cuenta que fui muy rápido sobre cómo hacer en la práctica cada paso, pero no sé si quizás tendría que haberte explicado un poco mejor el por qué de cada cosa. No tengas reparo en cuestionarme en cualquier momento sobre algo de lo que te diga, ¿vale? Quizás tiendo a asumir que sabes ya de entrada de lo que te estoy hablando, cuando no tendrías por qué. Así que tu pregunta sin miedo :)
+
+¡Y dime si me he olvidado algo o necesitas algo más!
+
+Un saludo,
+laura
+
+￼￼￼￼
+
+Enlaces:
+- Espectro SDSS, info general: https://www.sdss4.org/dr17/spectro/spectro_basics/
+- Formato fichero: https://data.sdss.org/datamodel/files/BOSS_SPECTRO_REDUX/RUN2D/spectra/PLATE4/spec.html
+- Conversión vacío-aire DR7: https://classic.sdss.org/dr7/products/spectra/vacwavelength.php
+- Artículo SDSS sobre la dependencia de la dispersión instrumental con lambda (fig 35): https://ui.adsabs.harvard.edu/abs/2013AJ....146...32S/abstract
+- Paquete de Python para corregir de extinción: https://extinction.readthedocs.io/en/latest/
+- Web para obtener información de la extinción galáctica: https://irsa.ipac.caltech.edu/applications/DUST/ (version web), https://irsa.ipac.caltech.edu/applications/DUST/docs/dustProgramInterface.html (version http)
+
+P.D. Le he preguntado a Mónica qué receta de extinción galáctica es mejor usar, si la de Schlafly & Finkbeiner 2011 o la de Schlegel et al. 1998, te aviso con lo que me diga.
+
