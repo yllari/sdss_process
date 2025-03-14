@@ -94,16 +94,18 @@ class pipe_sdss():
         ax[1].set_xlabel(r'$\lambda$ air')
         ax[1].set_ylabel(r'$\sigma_\lambda$ air')
 
+        nodeg = self.flux
+
+        # Showing only the most affected range
         deg = self.degrade()
-        ax[2].plot(self.wave_air, self.flux - deg[1] )
+        ax[2].plot(self.wave_air, nodeg - self.flux)
         ax[2].set_xlabel(r'$\lambda$ air')
         ax[2].set_ylabel(r'flux - degraded flux')
         ax[2].set_ylim([-10,10])
 
-        # Showing only the most affected range
         filter_wave = (self.wave_air > 4000) & (self.wave_air < 4100)
-        ax[3].plot(self.wave_air[filter_wave], self.flux[filter_wave], label='original')
-        ax[3].plot(self.wave_air[filter_wave], deg[1][filter_wave], label='degraded')
+        ax[3].plot(self.wave_air[filter_wave], nodeg[filter_wave], label='original')
+        ax[3].plot(self.wave_air[filter_wave], self.flux[filter_wave], label='degraded')
         ax[3].set_ylim()
         ax[3].set_xlabel(r'$\lambda$ air')
         ax[3].set_ylabel(r'flux')
@@ -111,13 +113,13 @@ class pipe_sdss():
         ax[3].legend()
 
         # Now the less affeted to compare
-        filter_wave = (self.wave_air > 6500) & (self.wave_air < 6600)
+        filter_wave = (self.wave_air > 6000) & (self.wave_air < 6100)
         ax[4].plot(self.wave_air[filter_wave], self.flux[filter_wave], label='original')
-        ax[4].plot(self.wave_air[filter_wave], deg[1][filter_wave], label='degraded')
+        ax[4].plot(self.wave_air[filter_wave], nodeg[filter_wave], label='degraded')
         ax[4].set_ylim()
         ax[4].set_xlabel(r'$\lambda$ air')
         ax[4].set_ylabel(r'flux')
-        ax[4].set_xlim([6500,6600])
+        ax[4].set_xlim([6000,6100])
         ax[4].legend()
         fig.tight_layout()
         fig.savefig('debug.png')
@@ -210,18 +212,20 @@ if __name__ == '__main__':
     # SDF 0.0492, 0.0009
     # SandF 0.0423, 0.0008
     sdss = pipe_sdss(filepath, 0.0492, 0.0009,w_lims)
-    data_0 = sdss.give_data()
-    sdss.corr_ext()
-    sdss.degrade()
+    sdss._plot_debug()
 
-    data_1 = sdss.give_data()
-    plt.plot(data_1[0], data_1[1], alpha=.5)
-    data_ref = np.genfromtxt('sdss_process/data/CAVITY137_spec_sdss_conv_nonan.txt')
-    plt.plot(data_ref[:,1], data_ref[:,2], alpha=0.5)
-    lims = [6500, 7000]
-    #lims = [4300, 5000]
-    lims = [5800, 6200]
-    plt.xlim(lims)
-    filter_w = (data_ref[:,1] > lims[0]) & (data_ref[:,1] < lims[1])
-    plt.ylim([np.min(data_ref[:,2][filter_w]), np.max(data_ref[:,2][filter_w])] )
-    plt.savefig('spectrum.png')
+    #data_0 = sdss.give_data()
+    #sdss.corr_ext()
+    #sdss.degrade()
+
+    #data_1 = sdss.give_data()
+    #plt.plot(data_1[0], data_1[1], alpha=.5)
+    #data_ref = np.genfromtxt('sdss_process/data/CAVITY137_spec_sdss_conv_nonan.txt')
+    #plt.plot(data_ref[:,1], data_ref[:,2], alpha=0.5)
+    #lims = [6500, 7000]
+    ##lims = [4300, 5000]
+    #lims = [5800, 6200]
+    #plt.xlim(lims)
+    #filter_w = (data_ref[:,1] > lims[0]) & (data_ref[:,1] < lims[1])
+    #plt.ylim([np.min(data_ref[:,2][filter_w]), np.max(data_ref[:,2][filter_w])] )
+    #plt.savefig('spectrum.png')
