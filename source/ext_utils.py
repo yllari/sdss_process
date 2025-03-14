@@ -13,9 +13,10 @@ upload an IPAC table with all RA and DEC. This is much faster than single http q
 To convert from CSV to IPAC use utils.csv_to_ipac
 '''
 
-def single_extinction(objid : str, dataheader):
-    ''' WARNING, DEC AND RA DONT MATCH FROM HEADER AND SDSS
-        objid has to be CAVITY void galaxy or specobjid
+def single_redd(objid : str, dataheader):
+    ''' objid has to be CAVITY void galaxy or specobjid
+    :param objid: CAVITY assigned number for void galaxy or SDSS specobjid
+    :return: value of reddening E(B-V) as returned from the IRSA IPAC DUST application
     '''
 
     header_info  = pd.read_csv(dataheader)
@@ -54,13 +55,33 @@ def single_extinction(objid : str, dataheader):
 
     return E_BV, sigma_EBV
 
-def correct_extinction():
-    ''' WIP'''
-    ...
+def correct_extinction(wave, flux, eflux, Av, eAv, Rv=3.1):
+    ''' Given a spectra, correct for extinction saved in another file
+    and return
+    :param wave: wavelength for the measured flux
+    :param flux: value fo flux in weach wavelength
+    :param eflux: uncertainty associated to flux for each wavelength
+    :param a_v: mean extinction in V band
+    :param r_v: Ratio of total to selective extinctio, A_V/E(B-V)
+    :return: corrected flux and associated eflux
+    '''
+
+
+    ext_model = extinction.ccm89(wave.astype(float), Av, r_v=Rv)
+    flux_corr= extinction.remove(ext_model, flux)
+    #eflux_corr = extinction.remove(ext_model, eflux)
+
+
+    ''' WARNING: Check that the formula is well calculated. It is not. There should be
+    a extinction model dependance. For the moment we will use mean values.
+    Formula: \sqrt{ [10**(0.4*Av)*eflux]**2 + [flux_corr*10**(0.4*Av)*0.4*np.log(10)*eAv]**2}'''
+    eflux_corr = np.sqrt((10**(0.4*Av)*eflux)**2 + (flux_corr*0.4*np.log(10)*eAv)**2)
+
+    return flux_corr, eflux_corr
 
 
 if __name__ == '__main__':
     t_0 = time.time()
-    print(*single_extinction(54708, 'data/voids_header.csv'))
+    print(*single_redd(54708, 'data/voids_header.csv'))
     t_1 = time.time()
     print('Elapsed time', t_1-t_0)

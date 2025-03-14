@@ -4,6 +4,7 @@ from scipy.stats import norm
 import matplotlib.pyplot as plt
 import requests
 import os
+from ext_utils import correct_extinction
 
 class pipe_sdss():
     def __vacuum_to_air(self, wave):
@@ -26,19 +27,32 @@ class pipe_sdss():
         return deriv
 
 
-    def __filter_wave(self):
+    def filter_wave(self):
         wave_filter = (self.wave_air> self.w_lims[0]) & (self.wave_air < self.w_lims[1])
-        self.wave_vac = self.wave_air[wave_filter]
+        self.wave_vac = self.wave_vac[wave_filter]
         self.wave_air = self.wave_air[wave_filter]
-        self.logwave = data_fits[1].data['loglam'][wave_filter]
-        plt.show()
-        self.flux = data_fits[1].data['flux'][wave_filter]
-        self.ivar = data_fits[1].data['ivar'][wave_filter]
-        self.wdisp = data_fits[1].data['wdisp'][wave_filter]
-        self.eflux = 1./np.sqrt(self.ivar)
+        self.logwave = self.logwave[wave_filter]
+        self.flux = self.flux[wave_filter]
+        self.ivar = self.ivar[wave_filter]
+        self.wdisp = self.wdisp[wave_filter]
+        self.eflux = self.eflux[wave_filter]
+        self.sigma_wave = self.sigma_wave[wave_filter]
+        self.max_sigma_wave = np.max(self.sigma_wave)
 
 
-    def __init__(self, filepath, w_lims):
+    def __init__(self,
+            filepath : str,
+            Av : float,
+            eAv : float,
+            w_lims : list = [3800, 9000],
+            w_margin = 15):
+        ''' read spectrum from SDSS fits file
+        :param filepath: filepath, default string from which read the SDSS spectrum
+        :param Av: mean extinction in V band for extinction correction
+        :param eAv: std extinction in V band
+        :param w_lims: wavelength  limits for spectrum
+        :param w_margin: some margin to leave to avoid boundary problems when processing, in AAº
+        '''
 
         # Documentation for header:
         # https://data.sdss.org/datamodel/files/BOSS_SPECTRO_REDUX/RUN2D/spectra/PLATE4/spec.html
@@ -51,7 +65,23 @@ class pipe_sdss():
         self.flux = data_fits[1].data['flux']
         self.ivar = data_fits[1].data['ivar']
         self.wdisp = data_fits[1].data['wdisp']
+        # ivar = 0 means infinite error, effectively bad pixel
+        # for our purposes we can just give large values of eflux
         self.eflux = 1./np.sqrt(self.ivar)
+        self.eflux[self.ivar == 0] = 999999  # large error
+        # leave margin for degrade, by default 15 AA
+        self.w_lims = [w_lims[0] - w_margin, w_lims[1] + w_margin]
+
+
+        # Extinction values
+        self.Av = Av
+        self.eAv = eAv
+        self.sigma_wave = self.sigma_wave_air()
+
+        self.filter_wave()
+        self.w_lims = w_lims
+        self.max_sigma_wave = np.max(self.sigma_wave)
+
 
     def _plot_debug(self):
         fig, ax = plt.subplots(1, 5)
@@ -89,7 +119,6 @@ class pipe_sdss():
         ax[4].set_ylabel(r'flux')
         ax[4].set_xlim([6500,6600])
         ax[4].legend()
-        print(np.sum(deg[1]), np.sum(self.flux))
         fig.tight_layout()
         fig.savefig('debug.png')
 
@@ -118,6 +147,10 @@ class pipe_sdss():
         ''' Returns all necessary info from read fits'''
         return self.wave_air, self.flux, self.eflux
 
+    def corr_ext(self):
+        self.flux, self.eflux = correct_extinction(self.wave_air, self.flux, self.eflux, self.Av, self.eAv)
+        return None
+
     def degrade(self, pad=10):
         ''' Degrade the spectrum quality to achieve uniform resolution '''
 
@@ -134,7 +167,7 @@ class pipe_sdss():
         pad_wave[pad:-pad] = self.wave_air
 
 
-        sigma_wave = self.sigma_wave_air()
+        sigma_wave = self.sigma_wave
         max_sigma = np.nanmax(sigma_wave) # hotfix to avoid maxsigma zero
 
         conv_sigma = np.sqrt(max_sigma**2 - sigma_wave**2)
@@ -151,7 +184,6 @@ class pipe_sdss():
         xy = np.meshgrid(pad_wave, pad_sigma)
 
         ''' WARNING, IN REALITY WE NEED  DX-DEPENDENT NORMALIZATION'''
-        ''' WARNING, CHECK THAT THE WAVELENGTH AND FLUX ARE CORRECTLY ALIGNED'''
         pad_mask = norm.pdf(xy[0].T,  loc=xy[0], scale=xy[1].T)
         pad_mask_norm = np.sum(pad_mask, axis=1)
         pad_mask = pad_mask/pad_mask_norm[None,:] # broadcasting
@@ -159,16 +191,37 @@ class pipe_sdss():
 
         #from astropy.convolution import Gaussian1DKernel, convolve
         #gaus = Gaussian1DKernel(stddev=5)
-        #print(gaus[0])
-        #gauss_flux = convolve(self.flux,  Gaussian1DKernel(stddev=np.sqrt(max_sigma**2 - np.mean(sigma_wave)**2)),boundary='extend', nan_treatment='interpolate')
+        #gauss_flux = convolve(pad_flux,  Gaussian1DKernel(stddev=np.sqrt(max_sigma**2 - np.mean(sigma_wave)**2)),boundary='extend', nan_treatment='interpolate')
 
-        return pad_wave[pad:-pad], gauss_flux[pad:-pad]
+        # Update values
+        self.wave_air = pad_wave[pad:-pad]
+        self.flux = gauss_flux[pad:-pad]
+        self.sigma_wave = np.ones(sigma_wave.shape)*max_sigma
+        self.max_sigma_wave = max_sigma
+
+        return self.wave_air, self.flux
 
 
 if __name__ == '__main__':
-    filepath = 'data/voids/CAVITY137.fits'
+    filepath = 'sdss_process/data/voids/CAVITY137.fits'
     w_lims = [3800, 7100]
-    sdss = pipe_sdss(filepath, w_lims)
-    #plt.hist(np.diff(sdss.logwave), bins=300)
-    #plt.savefig('example.png')
-    sdss._plot_debug()
+
+    # For CAVITY 137
+    # SDF 0.0492, 0.0009
+    # SandF 0.0423, 0.0008
+    sdss = pipe_sdss(filepath, 0.0492, 0.0009,w_lims)
+    data_0 = sdss.give_data()
+    sdss.corr_ext()
+    sdss.degrade()
+
+    data_1 = sdss.give_data()
+    plt.plot(data_1[0], data_1[1], alpha=.5)
+    data_ref = np.genfromtxt('sdss_process/data/CAVITY137_spec_sdss_conv_nonan.txt')
+    plt.plot(data_ref[:,1], data_ref[:,2], alpha=0.5)
+    lims = [6500, 7000]
+    #lims = [4300, 5000]
+    lims = [5800, 6200]
+    plt.xlim(lims)
+    filter_w = (data_ref[:,1] > lims[0]) & (data_ref[:,1] < lims[1])
+    plt.ylim([np.min(data_ref[:,2][filter_w]), np.max(data_ref[:,2][filter_w])] )
+    plt.savefig('spectrum.png')
