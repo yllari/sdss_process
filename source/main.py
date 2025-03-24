@@ -36,11 +36,10 @@ if __name__ == '__main__':
         AV = EBV*RV
         eAV = stdEBV*RV
 
-        sdss = pipe_sdss(filepath, AV, eAV,w_lims)
+        sdss = pipe_sdss(filepath, AV, eAV,w_lims, interpolate=True)
 
         sdss.corr_ext()
         sdss.degrade()
-        sdss.filter_wave()
 
         indx = np.arange(1, len(sdss.wave_air) + 1, 1)
         print('sigma_inst', sdss.max_sigma_wave)
