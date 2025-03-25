@@ -28,10 +28,8 @@ class pipe_sdss():
 
 
     def filter_wave(self):
-        wave_filter = (self.wave_air> self.w_lims[0]) & (self.wave_air < self.w_lims[1])
-        self.wave_vac = self.wave_vac[wave_filter]
+        wave_filter = (self.wave_air > self.w_lims[0]) & (self.wave_air < self.w_lims[1])
         self.wave_air = self.wave_air[wave_filter]
-        self.logwave = self.logwave[wave_filter]
         self.flux = self.flux[wave_filter]
         self.ivar = self.ivar[wave_filter]
         self.wdisp = self.wdisp[wave_filter]
@@ -45,17 +43,19 @@ class pipe_sdss():
         min_wave = np.amin(self.wave_air)
         max_wave = np.amax(self.wave_air)
         new_wave = np.linspace(min_wave, max_wave, int( (max_wave-min_wave)/spacing) )
-        new_wave_vac = np.interp(new_wave, self.wave_air, self.wave_vac)
+
         new_flux = np.interp(new_wave, self.wave_air, self.flux)
         new_sigma_wave = np.interp(new_wave, self.wave_air, self.sigma_wave)
         new_eflux = np.interp(new_wave, self.wave_air, self.eflux)
+        new_wdisp = np.interp(new_wave, self.wave_air, self.wdisp)
 
         self.wave_air = new_wave
-        self.wave_vac = new_wave_vac
-        self.logwave = np.log10(new_wave)
         self.flux = new_flux
+
         self.ivar = 1/new_eflux
         self.eflux = new_eflux
+
+        self.wdisp = new_wdisp
         self.sigma_wave = new_sigma_wave
 
 
@@ -78,10 +78,9 @@ class pipe_sdss():
         # https://data.sdss.org/datamodel/files/BOSS_SPECTRO_REDUX/RUN2D/spectra/PLATE4/spec.html
         data_fits = fits.open(filepath)
 
-        self.wave_vac= 10**(data_fits[1].data['loglam'])
-        self.wave_air = self.__vacuum_to_air(self.wave_vac)
+        wave_vac = 10**(data_fits[1].data['loglam'])
+        self.wave_air = self.__vacuum_to_air(wave_vac)
         self.w_lims = w_lims
-        self.logwave = data_fits[1].data['loglam']
         self.flux = data_fits[1].data['flux']
         self.ivar = data_fits[1].data['ivar']
         self.wdisp = data_fits[1].data['wdisp']
@@ -160,6 +159,7 @@ class pipe_sdss():
         We have to correct for the air formula as well, with the derivative
         '''
 
+        ## Alternative formula
         #sigma_wave_vac = 1e-4 * self.wdisp * np.log(10) * self.wave_vac
         #res = self.__vacuum_to_air_deriv(self.wave_vac)*sigma_wave_vac
         
@@ -171,6 +171,7 @@ class pipe_sdss():
 
 
     def resolution_power(self):
+        ''' Return the resolution power'''
         return self.wave_air/(2.35*self.sigma_wave)
 
 
@@ -179,6 +180,7 @@ class pipe_sdss():
         return self.wave_air, self.flux, self.eflux
 
     def corr_ext(self):
+        ''' Correct for Milky Way's extinction '''
         self.flux, self.eflux = correct_extinction(self.wave_air, self.flux, self.eflux, self.Av, self.eAv)
         return None
 
@@ -214,7 +216,7 @@ class pipe_sdss():
 
         xy = np.meshgrid(pad_wave, pad_sigma)
 
-        ''' WARNING, IN REALITY WE NEED  DX-DEPENDENT NORMALIZATION'''
+        ''' WARNING, IN REALITY WE NEED  DX-DEPENDENT NORMALIZATION if it is not resampled'''
         pad_mask = norm.pdf(xy[0].T,  loc=xy[0], scale=xy[1].T)
         pad_mask_norm = np.sum(pad_mask, axis=1)
         pad_mask = pad_mask/pad_mask_norm[None,:] # broadcasting to normalize kernel

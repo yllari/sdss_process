@@ -38,10 +38,13 @@ if __name__ == '__main__':
 
         sdss = pipe_sdss(filepath, AV, eAV,w_lims, interpolate=True)
 
+        ''' Correct for galactic extinction, degrade the specturm to uniform sigma and filter for wavelenghts
+        given by wave_lims'''
         sdss.corr_ext()
         sdss.degrade()
+        sdss.filter_wave()
 
-        indx = np.arange(1, len(sdss.wave_air) + 1, 1)
+        indx = np.arange(1, len(sdss.wave_air) + 1, 1) # First index necessary for PyPipe3D spectrum formatting
         print('sigma_inst', sdss.max_sigma_wave)
         np.savetxt(f'processed/{gal_type}/{gal_id}.txt', np.array([indx,sdss.wave_air,sdss.flux, sdss.eflux]).T)
         np.savetxt(f'processed/{gal_type}/{gal_id}_data.txt', [sdss.max_sigma_wave, z])
