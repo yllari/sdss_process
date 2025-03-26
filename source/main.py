@@ -29,14 +29,15 @@ if __name__ == '__main__':
         filepath = f'data/voids/CAVITY{gal_id}.fits'
         print('Processing galaxy', i, 'id', gal_id)
 
-        EBV = ext_table['mean_E_B_V_SandF'][0]
+        EBV = ext_table['mean_E_B_V_SandF'][i]
         # There is another option, exact position, but without std
         # AV = ext_table['AV_SandF'][i]
-        stdEBV = ext_table['stdev_E_B_V_SandF'][0]
+        stdEBV = ext_table['stdev_E_B_V_SandF'][i]
         AV = EBV*RV
         eAV = stdEBV*RV
+        print('AV', AV)
 
-        sdss = pipe_sdss(filepath, AV, eAV,w_lims, interpolate=True)
+        sdss = pipe_sdss(filepath, AV, eAV, w_lims, interpolate=True)
 
         ''' Correct for galactic extinction, degrade the specturm to uniform sigma and filter for wavelenghts
         given by wave_lims'''

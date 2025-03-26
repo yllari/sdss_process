@@ -28,7 +28,7 @@ def single_redd(objid : str, dataheader):
             ra = header_info['ra'].iloc[0]
             dec = header_info['dec'].iloc[0]
     else:
-        header_info = header_info[headear_info['specobjid'] == objid]
+        header_info = header_info[header_info['specobjid'] == objid]
         if len(header_info.index) != 1:
             raise Exception (f'Error retriving info, expected 1 row with objid but instead got {len(header_info.index)}')
         else:
