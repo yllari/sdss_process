@@ -4,6 +4,7 @@ from scipy.stats import norm
 import matplotlib.pyplot as plt
 import requests
 import os
+import time
 from ext_utils import correct_extinction
 
 class pipe_sdss():
@@ -220,7 +221,8 @@ class pipe_sdss():
         pad_mask = norm.pdf(xy[0].T,  loc=xy[0], scale=xy[1].T)
         pad_mask_norm = np.sum(pad_mask, axis=1)
         pad_mask = pad_mask/pad_mask_norm[None,:] # broadcasting to normalize kernel
-        gauss_flux = pad_flux@pad_mask
+        
+        gauss_flux = np.dot(pad_flux, pad_mask)
 
         #from astropy.convolution import Gaussian1DKernel, convolve
         #gaus = Gaussian1DKernel(stddev=5)
@@ -236,17 +238,62 @@ class pipe_sdss():
 
 
 if __name__ == '__main__':
-    filepath = 'data/voids/CAVITY137.fits'
-    w_lims = [3800, 9000]
+    def single_spectrum_save(objid, interpolate):
+        import pandas as pd
+        from astropy.io import ascii as astro_ascii
+        header_path = 'data/voids_header.csv'
+        ext_path = 'data/voids_extinction.txt'
+        gal_type = 'voids' # void, clusters or filaments
+        w_lims = [3800, 7100]
+        RV = 3.1
+
+        # reading data and ext_table
+        header_df = pd.read_csv(header_path)
+        ext_table = astro_ascii.read(ext_path)
+
+        # voids_extinction and voids_header have same ordering of galaxies (indexed)
+        gal_id = objid
+        i = np.where(header_df['galaxy'] == objid)
+        z = header_df['z'].iloc[i]
+        filepath = f'data/voids/CAVITY{gal_id}.fits'
+        print('Processing galaxy', objid, 'id', gal_id)
+
+        EBV = ext_table['mean_E_B_V_SandF'][i]
+        # There is another option, exact position, but without std
+        # AV = ext_table['AV_SandF'][i]
+        stdEBV = ext_table['stdev_E_B_V_SandF'][i]
+        AV = EBV*RV
+        eAV = stdEBV*RV
+        print('AV', AV)
+
+        sdss = pipe_sdss(filepath, AV, eAV, w_lims, interpolate=interpolate)
+
+        ''' Correct for galactic extinction, degrade the specturm to uniform sigma and filter for wavelenghts
+        given by wave_lims'''
+        sdss.corr_ext()
+        sdss.degrade()
+        sdss.filter_wave()
+
+        indx = np.arange(1, len(sdss.wave_air) + 1, 1) # First index necessary for PyPipe3D spectrum formatting
+        print('sigma_inst', sdss.max_sigma_wave)
+        np.savetxt(f'test_{gal_id}.txt', np.array([indx,sdss.wave_air,sdss.flux, sdss.eflux]).T)
+        np.savetxt(f'test_{gal_id}_data.txt', [sdss.max_sigma_wave, z])
+    #single_spectrum_save(3534, True)
+    filepath = f'data/voids/CAVITY137.fits'
+    w_lims = [3800, 7100]
 
     # For CAVITY 137
     # SDF 0.0492, 0.0009
     # SandF 0.0423, 0.0008
-    sdss = pipe_sdss(filepath, 0.0492, 0.0009,w_lims, interpolate=True)
-    sdss._plot_debug()
+    t_0 = time.time()
+    for i in range(20):
+        print(i)
+        sdss = pipe_sdss(filepath, 0.0492, 0.0009,w_lims, interpolate=True)
+        sdss.degrade()
+        #sdss._plot_debug()
 
-    #sdss.corr_ext()
-    #sdss.degrade()
+    print((time.time() - t_0)/100)
+
 
     #data_1 = sdss.give_data()
     #plt.plot(data_1[0], data_1[1], alpha=.5)
