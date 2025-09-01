@@ -14,6 +14,7 @@ def csv_to_ipac(filepath, columns, overwrite=True):
     table.write(filepath.replace('.csv','') + '_ipac' + col_str + '.txt', format='ipac', overwrite=overwrite)
 
 if __name__ == '__main__':
-    csv_to_ipac('data/voids_header.csv', ['ra', 'dec'])
+    csv_to_ipac('data/filaments_header.csv', ['ra', 'dec'])
+    
 
 

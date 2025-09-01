@@ -3,4 +3,5 @@
 *.swp
 *.DS_Store
 processed/
+processed_mastar/
 source/__pycache__/

@@ -71,10 +71,6 @@ def correct_extinction(wave, flux, eflux, Av, eAv, Rv=3.1):
     flux_corr= extinction.remove(ext_model, flux)
     #eflux_corr = extinction.remove(ext_model, eflux)
 
-
-    ''' WARNING: Check that the formula is well calculated. It is not. There should be
-    a extinction model dependance. For the moment we will use mean values.
-    Formula: \sqrt{ [10**(0.4*Av)*eflux]**2 + [flux_corr*0.4*np.log(10)*eAv*ext_model/Av]**2}'''
     eflux_corr = np.sqrt((10**(0.4*ext_model)*eflux)**2 + (flux_corr*0.4*np.log(10)*eAv*ext_model/Av)**2)
 
     return flux_corr, eflux_corr
