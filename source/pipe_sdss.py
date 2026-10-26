@@ -79,15 +79,16 @@ class pipe_sdss():
         # https://data.sdss.org/datamodel/files/BOSS_SPECTRO_REDUX/RUN2D/spectra/PLATE4/spec.html
         data_fits = fits.open(filepath)
 
-        wave_vac = 10**(data_fits[1].data['loglam'])
-        self.wave_air = self.__vacuum_to_air(wave_vac)
+        self.wave_vac = 10**(data_fits[1].data['loglam'])
+        self.wave_air = self.__vacuum_to_air(self.wave_vac)
         self.w_lims = w_lims
-        self.flux = data_fits[1].data['flux']
+        # The flux is in 10^-17 erg/cm/s/A -> 10^{-16}
+        self.flux = data_fits[1].data['flux']/10
         self.ivar = data_fits[1].data['ivar']
         self.wdisp = data_fits[1].data['wdisp']
         # ivar = 0 means infinite error, effectively bad pixel
         # for our purposes we can just give large values of eflux
-        self.eflux = 1./np.sqrt(self.ivar)
+        self.eflux = 1./np.sqrt(self.ivar)/10
         self.eflux[self.ivar == 0] = 999999  # large error
         # leave margin for degrade, by default 15 AA
         self.w_lims = [w_lims[0] - w_margin, w_lims[1] + w_margin]
@@ -289,20 +290,20 @@ if __name__ == '__main__':
     for i in range(20):
         print(i)
         sdss = pipe_sdss(filepath, 0.0492, 0.0009,w_lims, interpolate=True)
-        sdss.degrade()
-        #sdss._plot_debug()
+        #sdss.degrade()
+        sdss._plot_debug()
 
     print((time.time() - t_0)/100)
 
 
-    #data_1 = sdss.give_data()
-    #plt.plot(data_1[0], data_1[1], alpha=.5)
-    #data_ref = np.genfromtxt('sdss_process/data/CAVITY137_spec_sdss_conv_nonan.txt')
-    #plt.plot(data_ref[:,1], data_ref[:,2], alpha=0.5)
-    #lims = [6500, 7000]
-    ##lims = [4300, 5000]
-    #lims = [5800, 6200]
-    #plt.xlim(lims)
-    #filter_w = (data_ref[:,1] > lims[0]) & (data_ref[:,1] < lims[1])
-    #plt.ylim([np.min(data_ref[:,2][filter_w]), np.max(data_ref[:,2][filter_w])] )
-    #plt.savefig('spectrum.png')
+    data_1 = sdss.give_data()
+    plt.plot(data_1[0], data_1[1], alpha=.5)
+    data_ref = np.genfromtxt('sdss_process/data/CAVITY137_spec_sdss_conv_nonan.txt')
+    plt.plot(data_ref[:,1], data_ref[:,2], alpha=0.5)
+    lims = [6500, 7000]
+    #lims = [4300, 5000]
+    lims = [5800, 6200]
+    plt.xlim(lims)
+    filter_w = (data_ref[:,1] > lims[0]) & (data_ref[:,1] < lims[1])
+    plt.ylim([np.min(data_ref[:,2][filter_w]), np.max(data_ref[:,2][filter_w])] )
+    plt.savefig('spectrum.png')

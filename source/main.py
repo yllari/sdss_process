@@ -9,23 +9,22 @@ import os
 
 '''Try processing voids data'''
 
-def call_save_pipesdss(filepath, out_path, AV, eAV, w_lims, gal_id, z, interpolate=True):
-
-    sdss = pipe_sdss(filepath, AV, eAV, w_lims, interpolate=interpolate)
-
+def call_save_pipesdss(filepath, out_path, AV, eAV, w_lims, gal_id, z, interpolate=False):
     ''' Correct for galactic extinction, degrade the specturm to uniform sigma and filter for wavelenghts
     given by wave_lims'''
+    sdss = pipe_sdss(filepath, AV, eAV, w_lims, interpolate=interpolate)
     sdss.corr_ext()
-    sdss.degrade()
+    #sdss.degrade()
     sdss.filter_wave()
 
     indx = np.arange(1, len(sdss.wave_air) + 1, 1) # First index necessary for PyPipe3D spectrum formatting
+    # Vaccum wavelength is used here
     np.savetxt(f'{out_path}/{gal_type}/{gal_id}.txt', np.array([indx,sdss.wave_air,sdss.flux, sdss.eflux]).T)
     np.savetxt(f'{out_path}/{gal_type}/{gal_id}_data.txt', [sdss.max_sigma_wave, z])
 
     return None
 
-def multiprocess_sdss(in_path, out_path, header_path, ext_path, gal_type, w_lims, RV, ncores):
+def multiprocess_sdss(in_path, out_path, header_path, ext_path, gal_type, w_lims, RV, ncores, interpolate=False):
 
     os.makedirs(f'{out_path}/{gal_type}', exist_ok=True) 
     procs = []
@@ -52,7 +51,7 @@ def multiprocess_sdss(in_path, out_path, header_path, ext_path, gal_type, w_lims
             stdEBV = ext_table['stdev_E_B_V_SandF'][i]
             AV = EBV*RV
             eAV = stdEBV*RV
-            proc = executor.submit(call_save_pipesdss, filepath, out_path, AV, eAV, w_lims, gal_id, z,  interpolate=False)
+            proc = executor.submit(call_save_pipesdss, filepath, out_path, AV, eAV, w_lims, gal_id, z,  interpolate=interpolate)
             procs.append(proc)
         total = len(procs)
         current = 0
@@ -76,21 +75,19 @@ def check_all_files(gal_type, primary_id):
     return failed
 
 
-
-
 if __name__ == '__main__':
-    gal_type = 'filaments' # void, clusters or filaments
+    gal_type = 'clusters' # voids, clusters or filaments
     gal_id = 'specobjid'
     ext_path = f'data/{gal_type}_extinction.txt'
     header_path = f'data/{gal_type}_header.csv'
     in_path = 'data'
-    out_path = 'processed_mastar'
     w_lims = [3800, 7100]
+    out_path = 'processed_mastar'
     RV = 3.1
     ncores = 4
     t_0 = time.time()
-    multiprocess_sdss(in_path, out_path, header_path, ext_path, gal_type, w_lims, RV, ncores)
+    multiprocess_sdss(in_path, out_path, header_path, ext_path, gal_type, w_lims, RV, ncores, interpolate=False)
     print('Elapsed time', time.time() - t_0)
-    print(check_all_files(gal_type, gal_id))
+    #print(check_all_files(gal_type, gal_id))
 
 
