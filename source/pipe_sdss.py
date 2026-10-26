@@ -126,7 +126,7 @@ class pipe_sdss():
         ax[2].plot(self.wave_air, self.eflux)
         ax[2].set_xlabel(r'$\lambda$ air')
         ax[2].set_ylabel(r'flux - degraded flux')
-        ax[2].set_ylim([-10,10])
+        #ax[2].set_ylim([-10,10])
 
         filter_wave = (self.wave_air > 4000) & (self.wave_air < 4100)
         ax[3].plot(self.wave_air[filter_wave], nodeg[filter_wave], label='original')
@@ -220,10 +220,12 @@ class pipe_sdss():
 
         ''' WARNING, IN REALITY WE NEED  DX-DEPENDENT NORMALIZATION if it is not resampled'''
         pad_mask = norm.pdf(xy[0].T,  loc=xy[0], scale=xy[1].T)
-        pad_mask_norm = np.sum(pad_mask, axis=1)
+        dx = np.diff(pad_wave)
+        dx = np.append(dx, dx[-1])
+        pad_mask_norm = np.sum(pad_mask*dx[None, :], axis=1)
         pad_mask = pad_mask/pad_mask_norm[None,:] # broadcasting to normalize kernel
         
-        gauss_flux = np.dot(pad_flux, pad_mask)
+        gauss_flux = np.dot(pad_flux, pad_mask*dx[None, :])
 
         #from astropy.convolution import Gaussian1DKernel, convolve
         #gaus = Gaussian1DKernel(stddev=5)
@@ -232,6 +234,7 @@ class pipe_sdss():
         # Update values
         self.wave_air = pad_wave[pad:-pad]
         self.flux = gauss_flux[pad:-pad]
+        print(print(self.flux))
         self.sigma_wave = np.ones(sigma_wave.shape)*max_sigma
         self.max_sigma_wave = max_sigma
 
@@ -287,9 +290,9 @@ if __name__ == '__main__':
     # SDF 0.0492, 0.0009
     # SandF 0.0423, 0.0008
     t_0 = time.time()
-    for i in range(20):
+    for i in range(1):
         print(i)
-        sdss = pipe_sdss(filepath, 0.0492, 0.0009,w_lims, interpolate=True)
+        sdss = pipe_sdss(filepath, 0.0492, 0.0009,w_lims, interpolate=False)
         #sdss.degrade()
         sdss._plot_debug()
 
